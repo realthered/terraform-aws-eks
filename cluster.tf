@@ -1,20 +1,23 @@
-resource "aws_cloudwatch_log_group" "this" {
-  count             = length(var.cluster_enabled_log_types) > 0 && var.create_eks ? 1 : 0
+resource "aws_cloudwatch_log_group" "this" { #클라우드워치 로그그룹 생성 여부와 이름, 보관기간, kms 키 등을 정해줌.
+  #로깅 활성화할 컨트롤 플레인이 cluster_enabled_log_types이고, 얘는 그것의 갯수 > 0 && eks 만들거면 클라우드워치 로그그룹을 만들어줌.
+  count             = length(var.cluster_enabled_log_types) > 0 && var.create_eks ? 1 : 0 
   name              = "/aws/eks/${var.cluster_name}/cluster"
-  retention_in_days = var.cluster_log_retention_in_days
-  kms_key_id        = var.cluster_log_kms_key_id
+  retention_in_days = var.cluster_log_retention_in_days #로그 보관기간 지정. 기본은 90일
+  kms_key_id        = var.cluster_log_kms_key_id #KMS 키 ARN이 지정돼 있으면 이것은 대응하는 로그그룹 암호화를 위해 쓰임. KMS 키가 올바른 키 정책을 가졌는지 봐야 함.
   tags              = var.tags
 }
 
 resource "aws_eks_cluster" "this" {
-  count                     = var.create_eks ? 1 : 0
+  count                     = var.create_eks ? 1 : 0 #eks 새로 생성시 생성
   name                      = var.cluster_name
-  enabled_cluster_log_types = var.cluster_enabled_log_types
-  role_arn                  = local.cluster_iam_role_arn
+  enabled_cluster_log_types = var.cluster_enabled_log_types #클러스터에서 로깅할 것들에 대해 지정
+  role_arn                  = local.cluster_iam_role_arn #클러스터의 IAM 롤의 arn을 지정
   version                   = var.cluster_version
   tags                      = var.tags
 
   vpc_config {
+    #compact는 empty string을 리스트에서 제거하고 반환해줌. local.tf에 있음. cluster_create_security_group이 true면 join("", aws_security_group.cluster.*.id), false면 var.cluster_security_group_id
+    #
     security_group_ids      = compact([local.cluster_security_group_id])
     subnet_ids              = var.subnets
     endpoint_private_access = var.cluster_endpoint_private_access
